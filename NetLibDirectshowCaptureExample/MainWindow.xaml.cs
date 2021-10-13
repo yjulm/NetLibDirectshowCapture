@@ -27,7 +27,9 @@ namespace NetLibDirectshowCaptureExample
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private List<VideoDevice> _videoDevices;
-        private Device _device;
+        private List<AudioDevice> _audioDevices;
+        private Device _videoDevice;
+        private Device _audioDevice;
 
         private byte[] _rawBitmapArray;
         private bool _dirty = false;
@@ -37,11 +39,11 @@ namespace NetLibDirectshowCaptureExample
 
         public WriteableBitmap DisplayingBitmap
         {
-            get => _displayingBitmap;
+            get { return _displayingBitmap; }
             set
             {
                 _displayingBitmap = value;
-                OnPropertyChanged(nameof(DisplayingBitmap));
+                OnPropertyChanged("DisplayingBitmap");
             }
         }
 
@@ -51,7 +53,7 @@ namespace NetLibDirectshowCaptureExample
             InitializeComponent();
             DSLogger.CallBack = (t, s) =>
             {
-                Trace.WriteLine($"{Enum.GetName(typeof(LogType), t)}: {s}");
+                Trace.WriteLine(string.Format("{0}:{1}", Enum.GetName(typeof(LogType), t), s));
             };
             EnumVideoDevices();
             ListVideoDevices();
@@ -64,12 +66,18 @@ namespace NetLibDirectshowCaptureExample
             {
                 device.Capabilities = device.Capabilities.Where(c => c.Format == VideoFormat.YUY2 || c.Format == VideoFormat.XRGB).ToList();
             });
+
+            _audioDevices = Device.EnumAudioDevices();
+            _audioDevices.ForEach(device =>
+            {
+                device.Capabilities = device.Capabilities.Where(c => c.Format == AudioFormat.Wave16bit || c.Format == AudioFormat.WaveFloat).ToList();
+            });
         }
 
         private void ListVideoDevices()
         {
             // Remove old menu items
-            DeviceMenu.Items.Clear();
+            VideoMenu.Items.Clear();
             _videoDevices.ForEach(d =>
             {
                 MenuItem toAdd = new MenuItem()
@@ -81,11 +89,25 @@ namespace NetLibDirectshowCaptureExample
                 {
                     OnDeviceMenuItemClick(toAdd, e, d);
                 };
-                DeviceMenu.Items.Insert(0, toAdd);
+                VideoMenu.Items.Insert(0, toAdd);
+            });
+
+            AudioMenu.Items.Clear();
+            _audioDevices.ForEach(d =>
+            {
+                MenuItem toAdd = new MenuItem()
+                {
+                    Header = d.Name,
+                    IsCheckable = true
+                };
+                toAdd.Checked += (s, e) =>
+                {
+                    OnDeviceMenuItemClick(toAdd, e, d);
+                };
+                AudioMenu.Items.Insert(0, toAdd);
             });
             return;
         }
-
 
         private void OnDeviceMenuItemClick(object sender, RoutedEventArgs e, VideoDevice device)
         {
@@ -102,15 +124,15 @@ namespace NetLibDirectshowCaptureExample
                 Format = VideoFormat.RGB24,
             };
             videoConfig.OnVideoCaptured += OnFrame;
-            _device = new Device();
-            if (!_device.ResetGraph())
+            _videoDevice = new Device();
+            if (!_videoDevice.ResetGraph())
             {
                 return;
             }
 
-            _device.VideoConfiguration = videoConfig;
+            _videoDevice.VideoConfiguration = videoConfig;
 
-            if (!_device.ConnectFilters())
+            if (!_videoDevice.ConnectFilters())
             {
                 return;
             }
@@ -118,11 +140,41 @@ namespace NetLibDirectshowCaptureExample
             _currentHeight = videoConfig.CyAbs;
             _currentWidth = videoConfig.Cx;
             Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
-            _device.Start();
-            DeviceMenu.IsEnabled = false;
+            _videoDevice.Start();
+            VideoMenu.IsEnabled = false;
             CompositionTarget.Rendering += UpdateBitmapFromRawArray;
         }
 
+        private void OnDeviceMenuItemClick(object sender, RoutedEventArgs e, AudioDevice device)
+        {
+            AudioConfig audioConfig = new AudioConfig()
+            {
+                Name = device.Name,
+                Path = device.Path,
+                UseDefaultConfig = true,
+                //Mode = AudioMode.DirectSound,
+                //Format = AudioFormat.WaveFloat,
+                //Channels = 2,
+                //SampleRate = 48000,
+            };
+            audioConfig.OnAudioCaptured += OnFrame;
+            _audioDevice = new Device();
+            if (!_audioDevice.ResetGraph())
+            {
+                return;
+            }
+
+            _audioDevice.AudioConfiguration = audioConfig;
+
+            if (!_audioDevice.ConnectFilters())
+            {
+                return;
+            }
+
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            _audioDevice.Start();
+            AudioMenu.IsEnabled = false;
+        }
 
         private void OnRefreshClick(object sender, RoutedEventArgs e)
         {
@@ -132,7 +184,7 @@ namespace NetLibDirectshowCaptureExample
 
         private void OnFrame(object sender, VideoCapturedEventArgs e)
         {
-            _rawBitmapArray ??= new byte[e.Length];
+            _rawBitmapArray = _rawBitmapArray == null ? new byte[e.Length] : _rawBitmapArray;
             lock (_rawBitmapArray)
             {
                 if (_rawBitmapArray.Length < e.Length)
@@ -142,6 +194,11 @@ namespace NetLibDirectshowCaptureExample
                 Array.Copy(e.Array, _rawBitmapArray, e.Length);
                 _dirty = true;
             }
+        }
+
+        private void OnFrame(object sender, AudioCapturedEventArgs e)
+        {
+            Debug.WriteLine(String.Format("PCM raw byte length:{0}", e.Length));
         }
 
         private void UpdateBitmapFromRawArray(object s, EventArgs e)
@@ -175,7 +232,8 @@ namespace NetLibDirectshowCaptureExample
         public event PropertyChangedEventHandler PropertyChanged;
         private void OnPropertyChanged(string name)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            if (PropertyChanged != null)
+                PropertyChanged(this, new PropertyChangedEventArgs(name));
         }
     }
 }

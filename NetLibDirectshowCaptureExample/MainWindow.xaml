@@ -7,16 +7,17 @@
         d:DataContext="{d:DesignData MainWindow}"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
         mc:Ignorable="d"
-        Title="MainWindow" Height="1200" Width="1920">
+        Title="MainWindow" Height="400" Width="800">
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Name="ConnectMenu" Header="Connect">
                 <MenuItem Header="Refresh" Click="OnRefreshClick"></MenuItem>
                 <MenuItem Header="Disconnect"></MenuItem>
             </MenuItem>
-            <MenuItem Name="DeviceMenu" Header="Device"></MenuItem>
+            <MenuItem Name="VideoMenu" Header="Video"></MenuItem>
+            <MenuItem Name="AudioMenu" Header="Audio"></MenuItem>
         </Menu>
-        <Image Source="{Binding DisplayingBitmap}" Stretch="None" RenderTransformOrigin="0.5,0.5">
+        <Image Source="{Binding DisplayingBitmap}" Stretch="Uniform" RenderTransformOrigin="0.5,0.5">
             <Image.RenderTransform>
                 <ScaleTransform ScaleY="-1"/>
             </Image.RenderTransform>
