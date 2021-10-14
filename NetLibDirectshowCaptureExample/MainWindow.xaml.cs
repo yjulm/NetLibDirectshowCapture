@@ -198,7 +198,8 @@ namespace NetLibDirectshowCaptureExample
 
         private void OnFrame(object sender, AudioCapturedEventArgs e)
         {
-            Debug.WriteLine(String.Format("PCM raw byte length:{0}", e.Length));
+            Debug.Assert(e.Length != 0);
+            //Debug.WriteLine(String.Format("PCM raw byte length:{0}", e.Length));
         }
 
         private void UpdateBitmapFromRawArray(object s, EventArgs e)
